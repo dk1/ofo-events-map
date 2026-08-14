@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OFO field trips — map</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  :root { --ink:#1b1b1b; --ink-2:#555; --line:#dcdcdc; --accent:#d9a400; --full:#b3261e; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { display: flex; flex-direction: column;
+         font: 15px/1.4 "Avenir Next", -apple-system, system-ui, sans-serif; color: var(--ink); }
+  header { padding: 10px 14px; border-bottom: 1px solid var(--line); display: flex;
+           align-items: center; gap: 8px; flex-wrap: wrap; }
+  h1 { font-size: 1rem; margin: 0 8px 0 0; font-weight: 600; }
+  .note { font-size: 0.8rem; color: var(--ink-2); margin-left: auto; }
+  .month { font: inherit; font-size: 0.85rem; padding: 4px 11px; border: 1px solid var(--line);
+           background: #fff; border-radius: 999px; cursor: pointer; color: var(--ink-2); }
+  .month:hover { border-color: var(--ink-2); }
+  .month:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .month[aria-checked="true"] { background: var(--ink); border-color: var(--ink); color: #fff; }
+  #months { display: flex; gap: 6px; flex-wrap: wrap; }
+  .toggle { font-size: 0.85rem; color: var(--ink-2); display: flex; align-items: center;
+            gap: 5px; cursor: pointer; margin-left: 6px; }
+  #map { flex: 1; min-height: 0; }
+  .leaflet-popup-content { margin: 12px 14px; }
+  .pop-title { font-weight: 600; display: block; margin-bottom: 4px; }
+  .pop-when, .pop-where { font-family: ui-monospace, Menlo, monospace; font-size: 0.8rem;
+                          color: var(--ink-2); display: block; }
+  .pop-spaces { display: block; margin-top: 6px; font-size: 0.85rem; }
+  .pop-spaces.full { color: var(--full); }
+</style>
+</head>
+<body>
+<header>
+  <h1>OFO field trips</h1>
+  <div id="months" role="radiogroup" aria-label="Filter by month"></div>
+  <label class="toggle"><input type="checkbox" id="hide-full"> Hide full</label>
+  <span class="note" id="count"></span>
+</header>
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const ONTARIO = [[41.6, -95.2], [56.9, -74.3]];
+
+function esc(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, c =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                     "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+// "ongoing" sorts after every real month, which is where it belongs in a list
+// read top to bottom.
+const monthOf = ev => (ev.ongoing || !ev.start) ? "zz-ongoing" : ev.start.slice(0, 7);
+const labelOf = key => key === "zz-ongoing" ? "Ongoing"
+  : MONTH_NAMES[+key.slice(5) - 1] + " " + key.slice(0, 4);
+
+// Registration state is the one thing worth colouring: a trip with no spaces
+// left is a different answer to "can I go" than one with 30.
+const isFull = ev => ev.spaces_left === 0 || ev.registration === "Join waitlist";
+
+function spacesLine(ev) {
+  if (isFull(ev))
+    return '<span class="pop-spaces full">Full — waitlist</span>';
+  if (ev.spaces_left != null)
+    return `<span class="pop-spaces">${ev.spaces_left} spaces left</span>`;
+  return "";
+}
+
+function popup(ev) {
+  return `<a class="pop-title" href="${esc(ev.url)}" target="_blank" rel="noopener">${esc(ev.title)}</a>
+          <span class="pop-when">${esc(ev.when || "")}</span>
+          <span class="pop-where">${esc(ev.location || "")}</span>
+          ${spacesLine(ev)}`;
+}
+
+fetch("events.json").then(r => r.json()).then(events => {
+  const map = L.map("map").fitBounds(ONTARIO);
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 18,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+  }).addTo(map);
+
+  const placed = events.filter(e => e.lat != null);
+  const group = L.featureGroup().addTo(map);
+  placed.forEach(ev => {
+    ev.marker = L.marker([ev.lat, ev.lng]).bindPopup(popup(ev));
+  });
+
+  // Filtering hides markers rather than rebuilding them, so a popup left open
+  // on a trip that survives the change stays open.
+  let month = null;  // null = every month
+  function shown() {
+    const hideFull = document.getElementById("hide-full").checked;
+    return placed.filter(ev =>
+      (month === null || monthOf(ev) === month) && !(hideFull && isFull(ev)));
+  }
+
+  function render() {
+    group.clearLayers();
+    const visible = shown();
+    visible.forEach(ev => group.addLayer(ev.marker));
+    document.getElementById("count").textContent =
+      `${visible.length} of ${events.length} trips`
+      + (events.length - placed.length ? " · some unmapped" : "");
+  }
+
+  // One chip per month that has trips, in date order, plus "Ongoing" for the
+  // conventions and the ambassador sign-up — their dates are a registration
+  // window, so filing them under a month would be a claim about when they
+  // happen. See scrape.py.
+  // They are radios, not toggles: exactly one is always on, so they carry
+  // role="radio" and aria-checked rather than aria-pressed, and the group
+  // holds a single tab stop with the arrow keys moving between them — which
+  // is what a screen reader and a keyboard both expect from a control where
+  // picking one un-picks the others.
+  const chips = document.getElementById("months");
+  const present = [...new Set(placed.map(monthOf))].sort();
+  const options = [["All", null], ...present.map(m => [labelOf(m), m])];
+  const buttons = options.map(([label, value]) => {
+    const b = document.createElement("button");
+    b.className = "month";
+    b.textContent = label;
+    b.type = "button";
+    b.setAttribute("role", "radio");
+    b.setAttribute("aria-checked", String(value === month));
+    b.tabIndex = value === month ? 0 : -1;
+    b.addEventListener("click", () => select(b));
+    chips.appendChild(b);
+    b._value = value;
+    return b;
+  });
+
+  function select(chosen, focus) {
+    month = chosen._value;
+    buttons.forEach(b => {
+      b.setAttribute("aria-checked", String(b === chosen));
+      b.tabIndex = b === chosen ? 0 : -1;
+    });
+    if (focus) chosen.focus();
+    render();
+  }
+
+  chips.addEventListener("keydown", ev => {
+    const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[ev.key];
+    if (!step) return;
+    ev.preventDefault();
+    const i = buttons.indexOf(document.activeElement);
+    select(buttons[(i + step + buttons.length) % buttons.length], true);
+  });
+  document.getElementById("hide-full").addEventListener("change", render);
+  render();
+
+  // The fit needs a laid-out container: against a 0x0 map every bounds
+  // resolves to zoom 0, a world view with all the pins in one dot. The map is
+  // built in a fetch callback that can land before the flex shell is laid out,
+  // so try now and let a ResizeObserver do it once the pane has real width.
+  // animate: false — Leaflet drops a setView issued during a zoom animation.
+  const pane = document.getElementById("map");
+  let fitted = false;
+  function fit() {
+    if (fitted || !placed.length || !pane.clientWidth) return;
+    fitted = true;
+    map.invalidateSize();
+    map.fitBounds(group.getBounds().pad(0.1), { animate: false });
+    observer.disconnect();
+  }
+  const observer = new ResizeObserver(fit);
+  observer.observe(pane);
+  fit();
+});
+</script>
+</body>
+</html>

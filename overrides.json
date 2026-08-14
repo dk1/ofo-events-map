@@ -1,0 +1,24 @@
+{
+  "_comment": "Hand-placed coordinates, keyed by event id, applied by geocode.py after everything else. For events whose Location field is empty, names two places at once, or resolves somewhere wrong. 'note' is for whoever reads this next; nothing reads it.",
+
+  "6750797": {
+    "lat": 43.120764,
+    "lng": -80.267458,
+    "note": "Brantford - Location field is empty; the description gives Gilkison Flats as coordinates."
+  },
+  "6538894": {
+    "lat": 43.196,
+    "lng": -79.542,
+    "note": "Niagara Hotspots - 'Grimsby Wetlands: Biggar Lagoons' does not resolve; description gives 624 Winston Road, Grimsby."
+  },
+  "6714704": {
+    "lat": 46.309,
+    "lng": -79.461,
+    "note": "Northern Convention - 'North Bay area' silently resolved to Toronto."
+  },
+  "4784690": {
+    "lat": 49.25,
+    "lng": -84.5,
+    "note": "Rare Bird Ambassadors - province-wide, no real point exists. Centred on Ontario rather than left on London, which Nominatim returned for 'Ontario'."
+  }
+}
