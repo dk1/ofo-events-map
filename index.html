@@ -21,8 +21,9 @@
   .month:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .month[aria-checked="true"] { background: var(--ink); border-color: var(--ink); color: #fff; }
   #months { display: flex; gap: 6px; flex-wrap: wrap; }
-  .toggle { font-size: 0.85rem; color: var(--ink-2); display: flex; align-items: center;
-            gap: 5px; cursor: pointer; margin-left: 6px; }
+  .legend { font-size: 0.8rem; color: var(--ink-2); display: flex; align-items: center;
+            gap: 5px; margin-left: 10px; }
+  .legend .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--full); }
   #map { flex: 1; min-height: 0; }
   .leaflet-popup-content { margin: 12px 14px; }
   .pop-title { font-weight: 600; display: block; margin-bottom: 4px; }
@@ -35,8 +36,10 @@
 <body>
 <header>
   <h1>OFO field trips</h1>
-  <div id="months" role="radiogroup" aria-label="Filter by month"></div>
-  <label class="toggle"><input type="checkbox" id="hide-full"> Hide full</label>
+  <div id="months" role="group" aria-label="Filter by month"></div>
+  <!-- Colour is the only thing marking a waitlisted trip on the map, so the
+       map needs somewhere that says what the colour means. -->
+  <span class="legend"><span class="dot"></span> waitlist</span>
   <span class="note" id="count"></span>
 </header>
 <div id="map"></div>
@@ -44,6 +47,8 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 const ONTARIO = [[41.6, -95.2], [56.9, -74.3]];
+const OPEN_PIN = "#2b6cb0";
+const FULL_PIN = "#b3261e";
 
 function esc(s) {
   return String(s == null ? "" : s).replace(/[&<>"']/g, c =>
@@ -59,9 +64,25 @@ const monthOf = ev => (ev.ongoing || !ev.start) ? "zz-ongoing" : ev.start.slice(
 const labelOf = key => key === "zz-ongoing" ? "Ongoing"
   : MONTH_NAMES[+key.slice(5) - 1] + " " + key.slice(0, 4);
 
-// Registration state is the one thing worth colouring: a trip with no spaces
-// left is a different answer to "can I go" than one with 30.
+// Registration state is the one thing worth colouring: a trip with a waitlist
+// is a different answer to "can I go" than one with 30 spaces, and it is the
+// difference someone scans the map for.
 const isFull = ev => ev.spaces_left === 0 || ev.registration === "Join waitlist";
+
+// Drawn rather than Leaflet's default PNG, so the two states are one shape in
+// two colours and the fill can come from the same tokens the rest of the page
+// uses. anchored at the tip (12, 32), which is the point the pin claims.
+const icon = fill => L.divIcon({
+  className: "",
+  iconSize: [24, 32],
+  iconAnchor: [12, 32],
+  popupAnchor: [0, -30],
+  html: `<svg width="24" height="32" viewBox="0 0 24 32" aria-hidden="true">
+           <path d="M12 32C12 32 23 18.5 23 11.5A11 11 0 1 0 1 11.5C1 18.5 12 32 12 32Z"
+                 fill="${fill}" stroke="#fff" stroke-width="1.5"/>
+           <circle cx="12" cy="11.5" r="4" fill="#fff"/>
+         </svg>`,
+});
 
 function spacesLine(ev) {
   if (isFull(ev))
@@ -88,21 +109,19 @@ fetch("events.json").then(r => r.json()).then(events => {
   const placed = events.filter(e => e.lat != null);
   const group = L.featureGroup().addTo(map);
   placed.forEach(ev => {
-    ev.marker = L.marker([ev.lat, ev.lng]).bindPopup(popup(ev));
+    ev.marker = L.marker([ev.lat, ev.lng], {
+      icon: icon(isFull(ev) ? FULL_PIN : OPEN_PIN),
+      title: ev.title,
+    }).bindPopup(popup(ev));
   });
 
   // Filtering hides markers rather than rebuilding them, so a popup left open
   // on a trip that survives the change stays open.
-  let month = null;  // null = every month
-  function shown() {
-    const hideFull = document.getElementById("hide-full").checked;
-    return placed.filter(ev =>
-      (month === null || monthOf(ev) === month) && !(hideFull && isFull(ev)));
-  }
+  const months = new Set();  // empty = every month
 
   function render() {
     group.clearLayers();
-    const visible = shown();
+    const visible = placed.filter(ev => !months.size || months.has(monthOf(ev)));
     visible.forEach(ev => group.addLayer(ev.marker));
     document.getElementById("count").textContent =
       `${visible.length} of ${events.length} trips`
@@ -113,47 +132,35 @@ fetch("events.json").then(r => r.json()).then(events => {
   // conventions and the ambassador sign-up — their dates are a registration
   // window, so filing them under a month would be a claim about when they
   // happen. See scrape.py.
-  // They are radios, not toggles: exactly one is always on, so they carry
-  // role="radio" and aria-checked rather than aria-pressed, and the group
-  // holds a single tab stop with the arrow keys moving between them — which
-  // is what a screen reader and a keyboard both expect from a control where
-  // picking one un-picks the others.
+  // Checkboxes, not radios: any combination of months can be on at once, so
+  // each chip carries role="checkbox" with aria-checked and is its own tab
+  // stop. "All" is not a month — it is the reset, and it shows as checked
+  // exactly when no month is, since that is the same view.
   const chips = document.getElementById("months");
   const present = [...new Set(placed.map(monthOf))].sort();
-  const options = [["All", null], ...present.map(m => [labelOf(m), m])];
-  const buttons = options.map(([label, value]) => {
-    const b = document.createElement("button");
-    b.className = "month";
-    b.textContent = label;
-    b.type = "button";
-    b.setAttribute("role", "radio");
-    b.setAttribute("aria-checked", String(value === month));
-    b.tabIndex = value === month ? 0 : -1;
-    b.addEventListener("click", () => select(b));
-    chips.appendChild(b);
-    b._value = value;
-    return b;
-  });
-
-  function select(chosen, focus) {
-    month = chosen._value;
-    buttons.forEach(b => {
-      b.setAttribute("aria-checked", String(b === chosen));
-      b.tabIndex = b === chosen ? 0 : -1;
+  const buttons = [["All", null], ...present.map(m => [labelOf(m), m])]
+    .map(([label, value]) => {
+      const b = document.createElement("button");
+      b.className = "month";
+      b.textContent = label;
+      b.type = "button";
+      b.setAttribute("role", "checkbox");
+      b._value = value;
+      b.addEventListener("click", () => {
+        if (value === null) months.clear();
+        else if (!months.delete(value)) months.add(value);
+        sync();
+      });
+      chips.appendChild(b);
+      return b;
     });
-    if (focus) chosen.focus();
+
+  function sync() {
+    buttons.forEach(b => b.setAttribute("aria-checked",
+      String(b._value === null ? months.size === 0 : months.has(b._value))));
     render();
   }
-
-  chips.addEventListener("keydown", ev => {
-    const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[ev.key];
-    if (!step) return;
-    ev.preventDefault();
-    const i = buttons.indexOf(document.activeElement);
-    select(buttons[(i + step + buttons.length) % buttons.length], true);
-  });
-  document.getElementById("hide-full").addEventListener("change", render);
-  render();
+  sync();
 
   // The fit needs a laid-out container: against a 0x0 map every bounds
   // resolves to zoom 0, a world view with all the pins in one dot. The map is
