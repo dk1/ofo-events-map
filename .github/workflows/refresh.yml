@@ -1,0 +1,51 @@
+name: Refresh events
+
+# Re-scrapes OFO's events page daily and commits the result. Pages serves main
+# from the repo root, so the commit is the deploy.
+
+on:
+  schedule:
+    # 11:17 UTC — early morning in Ontario. Off the hour, because GitHub delays
+    # scheduled runs most at the top of one.
+    - cron: "17 11 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: refresh-events
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Scrape
+        run: python3 scrape.py > events.new.json
+
+      - name: Check the scrape before trusting it
+        run: python3 check.py events.new.json events.json
+
+      - name: Geocode
+        run: |
+          mv events.new.json events.json
+          python3 geocode.py
+
+      - name: Commit if the data moved
+        run: |
+          if git diff --quiet -- events.json cache.json; then
+            echo "No change since the last run."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add events.json cache.json
+          git commit -m "Refresh events data ($(date -u +%Y-%m-%d))"
+          git push
