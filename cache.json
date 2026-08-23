@@ -153,5 +153,15 @@
     "lat": 44.743827,
     "lng": -81.140815,
     "source": "nominatim:Wiarton"
+  },
+  "Zoom": {
+    "lat": 43.234025,
+    "lng": -79.06125,
+    "source": "nominatim:Zoom"
+  },
+  "Zoom Show details Powered by Wild Apricot Membership Software": {
+    "lat": null,
+    "lng": null,
+    "source": "unresolved"
   }
 }
