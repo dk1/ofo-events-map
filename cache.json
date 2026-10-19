@@ -49,6 +49,11 @@
     "lng": -82.191444,
     "source": "nominatim:Cochrane"
   },
+  "Colonel Sam Smith": {
+    "lat": 43.596474,
+    "lng": -79.517628,
+    "source": "nominatim:Colonel Sam Smith"
+  },
   "Grand Bend": {
     "lat": 43.312664,
     "lng": -81.757816,
@@ -78,6 +83,16 @@
     "lat": 46.102094,
     "lng": -81.412927,
     "source": "nominatim:Killarney Provincial Park"
+  },
+  "Leamington, Essex County": {
+    "lat": 42.053139,
+    "lng": -82.599772,
+    "source": "nominatim:Leamington, Essex County"
+  },
+  "Lynde Shores Conservation Area": {
+    "lat": 43.856937,
+    "lng": -78.962718,
+    "source": "nominatim:Lynde Shores Conservation Area"
   },
   "Nephton": {
     "lat": 44.627972,
@@ -109,6 +124,11 @@
     "lng": -78.31995,
     "source": "nominatim:Peterborough"
   },
+  "Petroglyphs Provincial Park": {
+    "lat": 44.624806,
+    "lng": -78.048324,
+    "source": "nominatim:Petroglyphs Provincial Park"
+  },
   "Point Pelee and Surrounding Area": {
     "lat": 41.908858,
     "lng": -82.509372,
@@ -133,6 +153,11 @@
     "lat": 43.906305,
     "lng": -77.250313,
     "source": "nominatim:Sandbanks Provincial Park"
+  },
+  "Tommy Thompson Park, Toronto": {
+    "lat": 43.632483,
+    "lng": -79.324261,
+    "source": "nominatim:Tommy Thompson Park, Toronto"
   },
   "Toronto": {
     "lat": 43.653482,
