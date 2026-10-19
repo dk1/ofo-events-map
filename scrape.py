@@ -11,7 +11,9 @@ import sys
 import urllib.request
 from datetime import date
 
-URL = "https://ofo25.wildapricot.org/events"
+# The list view carries every field. Bare /events is whatever view OFO sets as
+# the default, which became a calendar in Sept 2026 and broke the scrape.
+URL = "https://ofo25.wildapricot.org/events?EventViewMode=1&EventListViewMode=1"
 
 
 def fetch(url=URL):
@@ -100,17 +102,31 @@ def parse_date(text):
 
 
 def split_fields(body):
-    # The registration control ends the header. Every one of these words also
-    # occurs in the prose below it, so the *first* occurrence is the boundary
-    # and anything after it is description, not a field.
-    action = re.search(r"\b(" + "|".join(ACTIONS) + r")\b", body)
-    head, tail = (body[:action.start()], body[action.end():]) if action else (body, "")
+    # The header ends at "Registered N registrants", followed directly by the
+    # registration control if there is one. Trips not yet open for sign-up
+    # have none, and the prose quotes these words ("you will see 'Already
+    # registered'"), so only a control right at the boundary counts.
+    actions = "|".join(ACTIONS)
+    edge = re.search(r"\bRegistered \d+ registrants?\b\s*(?:(" + actions + r")\b)?", body)
+    if edge:
+        head, tail, action = body[:edge.end()], body[edge.end():], edge.group(1)
+    else:
+        # No count shown: fall back to the first control as the boundary.
+        m = re.search(r"\b(" + actions + r")\b", body)
+        head, tail = (body[:m.start()], body[m.end():]) if m else (body, "")
+        action = m.group(1) if m else None
 
-    out = {"_action": action.group(1) if action else None}
+    out = {"_action": action}
     marks = list(re.finditer(r"\b(" + "|".join(LABELS) + r")\b", head))
     for i, m in enumerate(marks):
         end = marks[i + 1].start() if i + 1 < len(marks) else len(head)
-        out[m.group(1)] = head[m.end():end].strip()
+        # First non-empty occurrence wins. Labels recur in the prose ("Location
+        # and Directions:"), where a later match would swallow the description;
+        # and leaders sometimes type the label into the field ("Location
+        # Location : Nephton"), leaving the first match empty.
+        value = head[m.end():end].strip()
+        if value and not out.get(m.group(1)):
+            out[m.group(1)] = value
     out["_body"] = tail.strip()
     return out
 

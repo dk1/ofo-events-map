@@ -11,7 +11,9 @@ query and results are bounded to the province, because a bare "Brighton" or
 import json
 import os
 import re
+import sys
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 
@@ -22,6 +24,9 @@ EVENTS = os.path.join(HERE, "events.json")
 FULL = os.path.join(HERE, "events.full.json")
 UA = "ofo-events-map/0.1 (https://github.com/dk1/ofo-events-map)"
 ONTARIO = (-95.2, 41.6, -74.3, 56.9)  # west, south, east, north
+# Webinars have a location of "Zoom", which Nominatim will happily pin to a
+# business of that name somewhere in Ontario.
+ONLINE = re.compile(r"\b(zoom|online|virtual|webinar|teams)\b", re.I)
 
 
 def parse_dms(text):
@@ -49,8 +54,17 @@ def nominatim(query):
     req = urllib.request.Request(
         f"https://nominatim.openstreetmap.org/search?{params}", headers={"User-Agent": UA}
     )
-    with urllib.request.urlopen(req) as r:
-        hits = json.load(r)
+    try:
+        with urllib.request.urlopen(req) as r:
+            hits = json.load(r)
+    except urllib.error.HTTPError as e:
+        # A 400 is this query being unusable ("Query is too long."): leave it
+        # unplaced rather than lose every other update. Anything else may be
+        # transient, and a miss is cached for good, so fail and retry tomorrow.
+        if e.code != 400:
+            raise
+        print(f"nominatim: HTTP 400 for {query[:80]!r}: {e.read()[:200]!r}", file=sys.stderr)
+        return None
     if not hits:
         return None
     return round(float(hits[0]["lat"]), 6), round(float(hits[0]["lon"]), 6)
@@ -72,8 +86,9 @@ def main():
             ev["geocode_source"] = "override"
             continue
         loc = ev.get("location")
-        if not loc:
+        if not loc or ONLINE.search(loc):
             ev["lat"] = ev["lng"] = None
+            ev["geocode_source"] = "online" if loc else None
             continue
         if loc not in cache:
             point = parse_dms(loc)

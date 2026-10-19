@@ -8,12 +8,16 @@ an empty list — so the guard is here, not there.
 Run: python3 check.py <candidate.json> [committed.json]
 
 Exits non-zero, and explains itself, if the candidate is empty, structurally
-wrong, or has lost more than SHRINK of the events we last published.
+wrong, or has lost more than SHRINK of the published events that have not
+happened yet. Past events are expected to drop off, so they don't count —
+otherwise the end of a season reads as a parse failure.
 """
 import json
 import sys
+from datetime import date
 
 SHRINK = 0.3  # a fall of more than 30% is a parse failure, not a quiet week
+MAX_FIELD = 150  # a longer title/location means the description bled in
 
 
 def load(path):
@@ -40,18 +44,28 @@ def main(candidate_path, committed_path=None):
     if missing:
         fail(f"{len(missing)} of {len(events)} events have no id or title")
 
+    # The descriptions carry leaders' names and emails and are never published.
+    # If one leaks into a short field, stop here rather than commit it.
+    for e in events:
+        for k in ("title", "location", "when"):
+            v = e.get(k) or ""
+            if len(v) > MAX_FIELD or "@" in v:
+                fail(f"event {e['id']} {k} looks like description text: {v[:60]!r}...")
+
     # Compare against what is already published, when there is one to compare to.
     try:
         previous = load(committed_path) if committed_path else []
     except (OSError, json.JSONDecodeError):
         previous = []
 
-    if previous:
-        floor = len(previous) * (1 - SHRINK)
+    today = date.today().isoformat()
+    upcoming = [e for e in previous if (e.get("end") or e.get("start") or today) >= today]
+    if upcoming:
+        floor = len(upcoming) * (1 - SHRINK)
         if len(events) < floor:
-            fail(f"scraped {len(events)} events, down from {len(previous)} "
-                 f"— below the floor of {floor:.0f}")
-        print(f"check: {len(events)} events (was {len(previous)}) — ok")
+            fail(f"scraped {len(events)} events, but {len(upcoming)} published ones "
+                 f"are still upcoming — below the floor of {floor:.0f}")
+        print(f"check: {len(events)} events ({len(upcoming)} published still upcoming) — ok")
     else:
         print(f"check: {len(events)} events, nothing to compare against — ok")
 

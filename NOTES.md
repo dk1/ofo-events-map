@@ -5,9 +5,9 @@ scraper is stdlib-only and has no dependencies.
 
 ## How the data is retrieved
 
-**One unauthenticated GET of `https://ofo25.wildapricot.org/events` returns
-every event in full.** The site is Wild Apricot. Findings from probing it on
-2026-08-14:
+**One unauthenticated GET of the events list view returns every event in
+full:** `https://ofo25.wildapricot.org/events?EventViewMode=1&EventListViewMode=1`.
+The site is Wild Apricot. Findings from probing it on 2026-08-14:
 
 - The list page is 1.5MB of server-rendered HTML holding **all 34 upcoming
   events**, each with title, date/time, location string, spaces left,
@@ -22,6 +22,10 @@ every event in full.** The site is Wild Apricot. Findings from probing it on
   structured events and this scraper becomes unnecessary. Worth asking before
   hardening any of this.
 - Event ids are stable and public: `/event-6431965`.
+- **Bare `/events` serves whichever view OFO has set as the default.** In
+  late Sept 2026 that became a calendar, with no spaces-left or registration
+  state, and the scrape returned 0 events until it was pointed at the list
+  view explicitly.
 
 `scrape.py` parses the list page into `events.json` (checked in as a sample).
 
@@ -76,8 +80,8 @@ with results cached in `cache.json`.
 
 ## Known gaps in the parse
 
-- 8 of 34 events have no `when` — multi-day events use a different date layout
-  ("Killarney", "Hilliardton Marsh", the two conventions). Not yet handled.
-- The `Location : ` prefix is not stripped.
+- Trips not yet open for sign-up show no registration control, so their
+  `registration` is null.
+- Online events (location "Zoom") are deliberately left unplaced.
 - `description` is the whole flattened block, including the registration
   furniture; it is not yet split into description / accessibility / contact.
