@@ -99,6 +99,11 @@
     "lng": -77.992785,
     "source": "nominatim:Nephton"
   },
+  "Niagara Falls": {
+    "lat": 43.10656,
+    "lng": -79.063904,
+    "source": "nominatim:Niagara Falls"
+  },
   "North Bay area": {
     "lat": 43.653568,
     "lng": -79.379942,
@@ -153,6 +158,11 @@
     "lat": 43.906305,
     "lng": -77.250313,
     "source": "nominatim:Sandbanks Provincial Park"
+  },
+  "The Glen,": {
+    "lat": 45.750814,
+    "lng": -76.875346,
+    "source": "nominatim:The Glen,"
   },
   "Tommy Thompson Park, Toronto": {
     "lat": 43.632483,
