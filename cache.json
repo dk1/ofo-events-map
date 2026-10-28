@@ -54,6 +54,11 @@
     "lng": -79.517628,
     "source": "nominatim:Colonel Sam Smith"
   },
+  "Dufferin Islands": {
+    "lat": 43.068303,
+    "lng": -79.070672,
+    "source": "nominatim:Dufferin Islands"
+  },
   "Grand Bend": {
     "lat": 43.312664,
     "lng": -81.757816,
@@ -99,10 +104,20 @@
     "lng": -77.992785,
     "source": "nominatim:Nephton"
   },
+  "Niagara": {
+    "lat": 43.063189,
+    "lng": -79.309809,
+    "source": "nominatim:Niagara"
+  },
   "Niagara Falls": {
     "lat": 43.10656,
     "lng": -79.063904,
     "source": "nominatim:Niagara Falls"
+  },
+  "Niagara on the Lake": {
+    "lat": 43.255612,
+    "lng": -79.072326,
+    "source": "nominatim:Niagara on the Lake"
   },
   "North Bay area": {
     "lat": 43.653568,
