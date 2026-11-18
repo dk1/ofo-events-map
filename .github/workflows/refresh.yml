@@ -12,6 +12,7 @@ on:
 
 permissions:
   contents: write
+  issues: write  # a new trip opens an issue, which emails the owner
 
 concurrency:
   group: refresh-events
@@ -33,6 +34,9 @@ jobs:
       - name: Check the scrape before trusting it
         run: python3 check.py events.new.json events.json
 
+      - name: Find new trips
+        run: python3 announce.py events.json events.new.json > new-trips.md
+
       - name: Geocode
         run: |
           mv events.new.json events.json
@@ -49,3 +53,13 @@ jobs:
           git add events.json cache.json
           git commit -m "Refresh events data ($(date -u +%Y-%m-%d))"
           git push
+
+      # Only after the push, so a failed refresh never announces anything.
+      - name: Open an issue for new trips
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          [ -s new-trips.md ] || exit 0
+          n=$(grep -c '^- ' new-trips.md)
+          { cat new-trips.md; echo; echo "Map: https://dk1.github.io/ofo-events-map/"; } > body.md
+          gh issue create --title "$n new OFO trip(s) — $(date -u +%Y-%m-%d)" --body-file body.md
