@@ -46,6 +46,7 @@ def parse(page):
         anchor = re.match(r'/event-\d+"[^>]*>(.*?)</a>', raw)
         title = text_of(anchor.group(1)) if anchor else None
         fields = split_fields(body)
+        fields.update(info_box(raw))
 
         # Single-day events carry "When"; multi-day ones carry "Start"/"End".
         when = fields.get("When")
@@ -53,7 +54,7 @@ def parse(page):
             when = f"{fields['Start']} – {fields.get('End', '')}".strip()
 
         # Some leaders type the label into the field: "Location : Toronto".
-        loc = re.sub(r"^(Location)?\s*:\s*", "", fields.get("Location", "")).strip(" .") or None
+        loc = re.sub(r"^(Location)?\s*:\s*", "", fields.get("Location", "")).strip(" .,") or None
 
         start = parse_date(fields.get("Start") or fields.get("When"))
         end = parse_date(fields.get("End")) or start
@@ -78,6 +79,32 @@ def parse(page):
             "description": fields.get("_body"),
         })
     return events
+
+
+def info_box(raw):
+    """Header fields read from their own markup, so prose can never leak in.
+
+    Each field is an <li> holding a <label> and a value. The time sits in its
+    own row with a blank label and belongs to the row above ("When"). The
+    registration state is the button's value; a trip with no button (not yet
+    open, or no sign-up at all) has none. Empty when the box is missing, and
+    split_fields' reading of the flattened text stands instead.
+    """
+    box = re.search(r'<ul class="boxInfo">(.*?)</ul>', raw, re.S)
+    if not box:
+        return {}
+    out, last = {}, None
+    for label, value in re.findall(
+            r'<label class="eventInfoBoxLabel">(.*?)</label>\s*'
+            r'<div class="eventInfoBoxValue">(.*?)</div>\s*</li>', box.group(1), re.S):
+        label, value = text_of(label), text_of(value)
+        if not label and last:
+            out[last] = f"{out[last]} {value}".strip()
+        elif label:
+            out[label], last = value, label
+    button = re.search(r'eventRegistrationActions[^"]*\$bt"[^>]*value="([^"]*)"', raw)
+    out["_action"] = html.unescape(button.group(1)) if button else None
+    return out
 
 
 # The rendered block is a run of labelled fields, then a registration control,
