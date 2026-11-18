@@ -1,4 +1,14 @@
 {
+  "1 Leslie Street, Toronto, ON": {
+    "lat": 43.65119,
+    "lng": -79.32159,
+    "source": "address"
+  },
+  "3050 Niagara Pkwy, Niagara Falls, ON": {
+    "lat": 43.082032,
+    "lng": -79.078016,
+    "source": "address"
+  },
   "45\u00b027'22.2\"N 76\u00b008'19.5\"W": {
     "lat": 45.456167,
     "lng": -76.13875,

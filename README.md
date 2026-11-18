@@ -39,9 +39,11 @@ page before relying on it.
 Trip locations are free text typed by leaders — usually a town or a park
 ("Brighton", "Algonquin Provincial Park"), occasionally a set of coordinates,
 sometimes a region. They are geocoded through
-[Nominatim](https://nominatim.openstreetmap.org/), so a pin is the general area
-and **never the meeting point**; the meeting point is in the trip description
-on the event page.
+[Nominatim](https://nominatim.openstreetmap.org/), so a pin is usually the
+general area, **not the meeting point**; the meeting point is in the trip
+description on the event page. When the description gives exactly one street
+address with a postal code, that address is geocoded instead, which is closer
+but still only as precise as Nominatim's match.
 
 Four events are hand-placed in `overrides.json`, either because the location
 field is empty or because geocoding put them somewhere wrong. Add to that file,

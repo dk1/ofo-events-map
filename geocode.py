@@ -26,6 +26,10 @@ UA = "ofo-events-map/0.1 (https://github.com/dk1/ofo-events-map)"
 ONTARIO = (-95.2, 41.6, -74.3, 56.9)  # west, south, east, north
 # Webinars have a location of "Zoom", which Nominatim will happily pin to a
 # business of that name somewhere in Ontario.
+# A street address the leader wrote out, ending in a postal code: "3050
+# Niagara Pkwy, Niagara Falls, ON L2E 6T2". The postal code is dropped, since
+# Nominatim matches Canadian ones poorly; the number, street and town do the work.
+ADDRESS = re.compile(r"\b(\d+[^;:.]*?,[^,;:]+,\s*ON)\.?\s*[A-Z]\d[A-Z] ?\d[A-Z]\d\b")
 ONLINE = re.compile(r"\b(zoom|online|virtual|webinar|teams)\b", re.I)
 
 
@@ -90,6 +94,22 @@ def main():
             ev["lat"] = ev["lng"] = None
             ev["geocode_source"] = "online" if loc else None
             continue
+        # A written-out address beats the location field, which is often a
+        # name Nominatim matches confidently and wrongly ("The Glen" landed
+        # near Renfrew, 500 km from the Niagara Glen). Only when there is
+        # exactly one, since a second may be a lunch stop.
+        addresses = set(ADDRESS.findall(ev.get("description") or ""))
+        if len(addresses) == 1:
+            addr = addresses.pop().strip()
+            if addr not in cache:
+                hit = nominatim(addr)
+                time.sleep(1)
+                cache[addr] = ({"lat": hit[0], "lng": hit[1], "source": "address"} if hit
+                               else {"lat": None, "lng": None, "source": "unresolved"})
+            if cache[addr]["lat"] is not None:
+                ev["lat"], ev["lng"] = cache[addr]["lat"], cache[addr]["lng"]
+                ev["geocode_source"] = "address"
+                continue
         if loc not in cache:
             point = parse_dms(loc)
             if point:
