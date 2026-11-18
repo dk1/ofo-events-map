@@ -40,9 +40,9 @@
     "location": "The Glen",
     "spaces_left": 25,
     "registration": "Register",
-    "lat": 45.750814,
-    "lng": -76.875346,
-    "geocode_source": "nominatim:The Glen"
+    "lat": 43.082032,
+    "lng": -79.078016,
+    "geocode_source": "address"
   },
   {
     "id": "6456521",
@@ -160,9 +160,9 @@
     "location": "Tommy Thompson Park, Toronto",
     "spaces_left": 9,
     "registration": "Register",
-    "lat": 43.632483,
-    "lng": -79.324261,
-    "geocode_source": "nominatim:Tommy Thompson Park, Toronto"
+    "lat": 43.65119,
+    "lng": -79.32159,
+    "geocode_source": "address"
   },
   {
     "id": "6884202",
